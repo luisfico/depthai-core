@@ -8,10 +8,10 @@
 
 // Optional. If set (true), the ColorCamera is downscaled from 1080p to 720p.
 // Otherwise (false), the aligned depth is automatically upscaled to 1080p
-static std::atomic<bool> downscaleColor{true};
+static std::atomic<bool> downscaleColor{false}; //true
 static constexpr int fps = 30;
 // The disparity is computed at this resolution, then upscaled to RGB resolution
-static constexpr auto monoRes = dai::MonoCameraProperties::SensorResolution::THE_720_P;
+static constexpr auto monoRes = dai::MonoCameraProperties::SensorResolution::THE_400_P; //THE_720_P
 
 static float rgbWeight = 0.4f;
 static float depthWeight = 0.6f;
@@ -20,6 +20,13 @@ static void updateBlendWeights(int percentRgb, void* ctx) {
     rgbWeight = float(percentRgb) / 100.f;
     depthWeight = 1.f - rgbWeight;
 }
+
+// Closer-in minimum depth, disparity range is doubled (from 95 to 190):
+static std::atomic<bool> extended_disparity{false};
+// Better accuracy for longer distance, fractional disparity 32-levels:
+static std::atomic<bool> subpixel{true};
+// Better handling for occlusions:
+static std::atomic<bool> lr_check{true};
 
 int main() {
     using namespace std;
@@ -38,6 +45,15 @@ int main() {
     auto rgbOut = pipeline.create<dai::node::XLinkOut>();
     auto depthOut = pipeline.create<dai::node::XLinkOut>();
 
+
+    // Create a node that will produce the depth map (using disparity output as it's easier to visualize depth this way)
+    stereo->setDefaultProfilePreset(dai::node::StereoDepth::PresetMode::HIGH_ACCURACY); //HIGH_ACCURACY,HIGH_DENSITY
+    // Options: MEDIAN_OFF, KERNEL_3x3, KERNEL_5x5, KERNEL_7x7 (default)
+    //stereo->initialConfig.setMedianFilter(dai::MedianFilter::KERNEL_7x7);
+    stereo->setLeftRightCheck(lr_check);
+    stereo->setExtendedDisparity(extended_disparity);
+    stereo->setSubpixel(subpixel);
+
     rgbOut->setStreamName("rgb");
     queueNames.push_back("rgb");
     depthOut->setStreamName("depth");
@@ -45,7 +61,7 @@ int main() {
 
     // Properties
     camRgb->setBoardSocket(dai::CameraBoardSocket::RGB);
-    camRgb->setResolution(dai::ColorCameraProperties::SensorResolution::THE_1080_P);
+    camRgb->setResolution(dai::ColorCameraProperties::SensorResolution::THE_4_K); //color THE_1080_P
     camRgb->setFps(fps);
     if(downscaleColor) camRgb->setIspScale(2, 3);
     // For now, RGB needs fixed focus to properly align with depth.
@@ -98,6 +114,7 @@ int main() {
     int defaultValue = (int)(rgbWeight * 100);
     cv::createTrackbar("RGB Weight %", blendedWindowName, &defaultValue, 100, updateBlendWeights);
 
+    int ite=0;
     while(true) {
         std::unordered_map<std::string, std::shared_ptr<dai::ImgFrame>> latestPacket;
 
@@ -110,6 +127,7 @@ int main() {
             }
         }
 
+        
         for(const auto& name : queueNames) {
             if(latestPacket.find(name) != latestPacket.end()) {
                 if(name == depthWindowName) {
@@ -124,6 +142,8 @@ int main() {
                 }
 
                 cv::imshow(name, frame[name]);
+                cv::imwrite("/home/lc/env/oakd/codeCpp/out/"+std::to_string(ite)+name+".png",frame[name]);
+                
             }
         }
 
@@ -143,6 +163,7 @@ int main() {
         if(key == 'q' || key == 'Q') {
             return 0;
         }
+        ite++;
     }
     return 0;
 }
