@@ -136,7 +136,7 @@ int main() {
                     // Optional, extend range 0..95 -> 0..255, for a better visualisation
                     if(1) frame[name].convertTo(frame[name], CV_8UC1, 255. / maxDisparity);
                     // Optional, apply false colorization
-                    if(1) cv::applyColorMap(frame[name], frame[name], cv::COLORMAP_HOT);
+                    //if(1) cv::applyColorMap(frame[name], frame[name], cv::COLORMAP_HOT);
                 } else {
                     frame[name] = latestPacket[name]->getCvFrame();
                 }
