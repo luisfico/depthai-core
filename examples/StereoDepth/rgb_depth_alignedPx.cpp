@@ -1,3 +1,10 @@
+/*
+BUILD:cmake -S . -B build -D 'DEPTHAI_BUILD_EXAMPLES=ON' -D 'CMAKE_BUILD_TYPE=Debug' 
+cmake --build build -j$(nproc)
+RUN: ./build/examples/rgb_depth_alignedPx 
+TRY to get  "depth" or "depthRaw"
+*/
+
 #include <cstdio>
 #include <iostream>
 
@@ -134,7 +141,7 @@ int main() {
                     frame[name] = latestPacket[name]->getFrame();
                     auto maxDisparity = stereo->initialConfig.getMaxDisparity();
                     // Optional, extend range 0..95 -> 0..255, for a better visualisation
-                    if(1) frame[name].convertTo(frame[name], CV_8UC1, 255. / maxDisparity);
+                    if(1) frame[name].convertTo(frame[name], CV_8UC1, 255. / maxDisparity); //rescale distarity values to <0,255>
                     // Optional, apply false colorization
                     //if(1) cv::applyColorMap(frame[name], frame[name], cv::COLORMAP_HOT);
                 } else {

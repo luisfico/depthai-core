@@ -22,7 +22,9 @@ run
 ./build/examples/rgb_depth_aligned 
 ./build/examples/rgb_depth_alignedPx 
 
-./build/examples/rgb_depth_confidence_aligned 
+./build/examples/rgb_depth_confidence_aligned    ????
+./build/examples/stereo_depth_video      multiple streams
+
 
 the recorded data will be at :
 

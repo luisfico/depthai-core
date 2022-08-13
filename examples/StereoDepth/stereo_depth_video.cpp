@@ -5,11 +5,11 @@
 
 static std::atomic<bool> withDepth{true};
 
-static std::atomic<bool> outputDepth{false};
+static std::atomic<bool> outputDepth{true};//false
 static std::atomic<bool> outputRectified{true};
 static std::atomic<bool> lrcheck{true};
 static std::atomic<bool> extended{false};
-static std::atomic<bool> subpixel{false};
+static std::atomic<bool> subpixel{true};//false
 
 int main() {
     using namespace std;
@@ -91,6 +91,7 @@ int main() {
     // Disparity range is used for normalization
     float disparityMultiplier = withDepth ? 255 / stereo->initialConfig.getMaxDisparity() : 0;
 
+    int ite=0;
     while(true) {
         auto left = leftQueue->get<dai::ImgFrame>();
         cv::imshow("left", left->getFrame());
@@ -103,6 +104,8 @@ int main() {
             cv::Mat disp(disparity->getCvFrame());
             disp.convertTo(disp, CV_8UC1, disparityMultiplier);  // Extend disparity range
             cv::imshow("disparity", disp);
+            cv::imwrite("/home/lc/env/oakd/codeCpp/out/"+std::to_string(ite)+"disparity.png",disp);
+             
             cv::Mat disp_color;
             cv::applyColorMap(disp, disp_color, cv::COLORMAP_JET);
             cv::imshow("disparity_color", disp_color);
@@ -110,6 +113,8 @@ int main() {
             if(outputDepth) {
                 auto depth = depthQueue->get<dai::ImgFrame>();
                 cv::imshow("depth", depth->getCvFrame());
+                cv::imwrite("/home/lc/env/oakd/codeCpp/out/"+std::to_string(ite)+"depth.png",depth->getCvFrame());
+                
             }
 
             if(outputRectified) {
@@ -125,6 +130,7 @@ int main() {
         if(key == 'q' || key == 'Q') {
             return 0;
         }
+        ite++;
     }
     return 0;
 }
