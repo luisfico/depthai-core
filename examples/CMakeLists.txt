@@ -324,6 +324,8 @@ dai_add_example(rgb_depth_aligned StereoDepth/rgb_depth_aligned.cpp ON)
 dai_add_example(rgb_depth_confidence_aligned StereoDepth/rgb_depth_confidence_aligned.cpp ON)
 dai_add_example(stereo_depth_video StereoDepth/stereo_depth_video.cpp ON)
 
+dai_add_example(rgb_depth_alignedPx StereoDepth/rgb_depth_alignedPx.cpp ON)
+
 # SystemLogger
 dai_add_example(system_information SystemLogger/system_information.cpp ON)
 
