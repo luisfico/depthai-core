@@ -1,7 +1,7 @@
 /*
-BUILD:cmake -S . -B build -D 'DEPTHAI_BUILD_EXAMPLES=ON' -D 'CMAKE_BUILD_TYPE=Debug' 
+BUILD:cmake -S . -B build -D 'DEPTHAI_BUILD_EXAMPLES=ON' -D 'CMAKE_BUILD_TYPE=Debug'
 cmake --build build -j$(nproc)
-RUN: ./build/examples/rgb_depth_alignedPx 
+RUN: ./build/examples/rgb_depth_alignedPx
 TRY to get  "depth" or "depthRaw"
 */
 
@@ -11,14 +11,16 @@ TRY to get  "depth" or "depthRaw"
 #include "utility.hpp"
 
 // Includes common necessary includes for development using depthai library
+#include <fstream>
+
 #include "depthai/depthai.hpp"
 
 // Optional. If set (true), the ColorCamera is downscaled from 1080p to 720p.
 // Otherwise (false), the aligned depth is automatically upscaled to 1080p
-static std::atomic<bool> downscaleColor{false}; //true
+static std::atomic<bool> downscaleColor{false};  // true
 static constexpr int fps = 30;
 // The disparity is computed at this resolution, then upscaled to RGB resolution
-static constexpr auto monoRes = dai::MonoCameraProperties::SensorResolution::THE_400_P; //THE_720_P
+static constexpr auto monoRes = dai::MonoCameraProperties::SensorResolution::THE_400_P;  // THE_720_P
 
 static float rgbWeight = 0.4f;
 static float depthWeight = 0.6f;
@@ -36,6 +38,11 @@ static std::atomic<bool> subpixel{true};
 static std::atomic<bool> lr_check{true};
 
 int main() {
+    std::ofstream file;
+    file.open("cloudDepth.csv");
+    // file.open("cloudDepth.csv", std::fstream::in | std::fstream::out | std::fstream::app);
+    file << "//X;Y;Z;Intensity\n";
+
     using namespace std;
 
     // Create pipeline
@@ -52,11 +59,10 @@ int main() {
     auto rgbOut = pipeline.create<dai::node::XLinkOut>();
     auto depthOut = pipeline.create<dai::node::XLinkOut>();
 
-
     // Create a node that will produce the depth map (using disparity output as it's easier to visualize depth this way)
-    stereo->setDefaultProfilePreset(dai::node::StereoDepth::PresetMode::HIGH_ACCURACY); //HIGH_ACCURACY,HIGH_DENSITY
+    stereo->setDefaultProfilePreset(dai::node::StereoDepth::PresetMode::HIGH_ACCURACY);  // HIGH_ACCURACY,HIGH_DENSITY
     // Options: MEDIAN_OFF, KERNEL_3x3, KERNEL_5x5, KERNEL_7x7 (default)
-    //stereo->initialConfig.setMedianFilter(dai::MedianFilter::KERNEL_7x7);
+    // stereo->initialConfig.setMedianFilter(dai::MedianFilter::KERNEL_7x7);
     stereo->setLeftRightCheck(lr_check);
     stereo->setExtendedDisparity(extended_disparity);
     stereo->setSubpixel(subpixel);
@@ -68,7 +74,7 @@ int main() {
 
     // Properties
     camRgb->setBoardSocket(dai::CameraBoardSocket::RGB);
-    camRgb->setResolution(dai::ColorCameraProperties::SensorResolution::THE_4_K); //color THE_1080_P
+    camRgb->setResolution(dai::ColorCameraProperties::SensorResolution::THE_4_K);  // color THE_1080_P
     camRgb->setFps(fps);
     if(downscaleColor) camRgb->setIspScale(2, 3);
     // For now, RGB needs fixed focus to properly align with depth.
@@ -121,7 +127,7 @@ int main() {
     int defaultValue = (int)(rgbWeight * 100);
     cv::createTrackbar("RGB Weight %", blendedWindowName, &defaultValue, 100, updateBlendWeights);
 
-    int ite=0;
+    int ite = 0;
     while(true) {
         std::unordered_map<std::string, std::shared_ptr<dai::ImgFrame>> latestPacket;
 
@@ -134,23 +140,28 @@ int main() {
             }
         }
 
-        
         for(const auto& name : queueNames) {
             if(latestPacket.find(name) != latestPacket.end()) {
+                //-------- Disparity frame aligned to color frame
                 if(name == depthWindowName) {
                     frame[name] = latestPacket[name]->getFrame();
+
                     auto maxDisparity = stereo->initialConfig.getMaxDisparity();
                     // Optional, extend range 0..95 -> 0..255, for a better visualisation
-                    if(1) frame[name].convertTo(frame[name], CV_8UC1, 255. / maxDisparity); //rescale distarity values to <0,255>
+                    if(1) frame[name].convertTo(frame[name], CV_8UC1, 255. / maxDisparity);  // rescale distarity values to <0,255>
+
                     // Optional, apply false colorization
-                    //if(1) cv::applyColorMap(frame[name], frame[name], cv::COLORMAP_HOT);
+                    // if(1) cv::applyColorMap(frame[name], frame[name], cv::COLORMAP_HOT);
+                    cv::imwrite("/home/lc/env/oakd/codeCpp/out/" + std::to_string(ite) + "disparityAligned.png", frame[name]);
+
                 } else {
+                    //-------- olor frame
                     frame[name] = latestPacket[name]->getCvFrame();
+                    cv::imwrite("/home/lc/env/oakd/codeCpp/out/" + std::to_string(ite) + "color.png", frame[name]);
                 }
 
                 cv::imshow(name, frame[name]);
-                cv::imwrite("/home/lc/env/oakd/codeCpp/out/"+std::to_string(ite)+name+".png",frame[name]);
-                
+                // cv::imwrite("/home/lc/env/oakd/codeCpp/out/"+std::to_string(ite)+name+".png",frame[name]);
             }
         }
 
@@ -163,6 +174,70 @@ int main() {
             cv::Mat blended;
             cv::addWeighted(frame[rgbWindowName], rgbWeight, frame[depthWindowName], depthWeight, 0, blended);
             cv::imshow(blendedWindowName, blended);
+/*
+            //-----Generation pointcloud with respect to left stereo frame-----------ini
+
+            // auto disparity = frame["depth"].clone();
+            auto disparity = frame[name].clone();
+
+            // cv::imwrite("tmp/imgRgb.png", frame["rgb"]);
+            cv::imwrite(numb_imgColor, frame["rgb"]);
+            cv::imwrite("/home/lc/env/oakd/codeCpp/depthai-core-example/tmp/imgDisparity.pgm", frame["depth"]);
+
+            cv::Mat img_rgb = frame["rgb"].clone();
+            cv::Mat img_disparity = frame["depth"].clone();
+
+            // Assuming  1280 x 720  default
+            // TODO: check this calib default!!!
+
+            double fx = 2366.810547, fy = fx, cx = 1980.788452, cy = 1073.155884;  // 4K = 3840x2160 is (1280×720   x3times)
+            double factorFix = 0.4;         // 1         // 720/400; //720/400; // 1080/720      0.4; //1000; //0.4;  // upscale   THE_400_P to THE_720_P
+            double baselineStereo = 0.075;  // Stereo baseline distance: 7.5 cm
+            for(int v = 0; v < disparity.rows; v++) {
+                for(int u = 0; u < disparity.cols; u++) {
+                    // if (disparity.at<uint8_t>(v, u) <= 0.0 || disparity.at<uint8_t>(v, u) >= 96.0)    //ok
+                    // if (disparity.at<uint8_t>(v, u) <= 0.0 || disparity.at<uint8_t>(v, u) >= 200.0)
+                    //     continue;
+
+                    // compute the depth from disparity
+                    // double disparityD=disparity.at<float>(v, u);//ko
+                    // double disparityD=disparity.at<double>(v, u); //ko
+                    // double disparityD = disparity.ptr<float>(v)[u]; //ko
+                    // double disparityD = disparity.ptr<unsigned short>(v)[u]; //ko
+
+                    // unsigned int disparityD = disparity.ptr<uint8_t>(v)[u]; //ok
+                    double disparityD = disparity.ptr<uchar>(v)[u];  // ok!!   disparityD value is scaled by 16bits? so   real disparityD= disparityD/16bits ?
+                    // double disparityD = disparity.ptr<uint8_t>(v)[u]; //ok!!   disparityD value is scaled by 16bits? so   real disparityD=
+                    // disparityD/16bits ? double disparityD = disparity.ptr<uint16_t>(v)[u]; double disparityD = disparity.ptr<uint32_t>(v)[u]; uchar
+                    // dispValue = disparity.ptr<uchar>(v)[u];  double disparityD = static_cast<double>(dispValue);
+                    if(disparityD <= 0.0) continue;
+
+                    double xNorm = (u - cx) / fx;                                 // x normalizado
+                    double yNorm = (v - cy) / fy;                                 // y normalizado
+                    double depth = fx * baselineStereo / (disparityD)*factorFix;  // ok depth=z real = scala w
+                    // double depth = fx * baselineStereo / (disparity.at<float>(v, u));//ko
+                    // double depth = fx * baselineStereo / disparity.ptr<float>(v)[u];//ko
+                    // unsigned int d2 = img_depth.ptr<uint8_t>(400)[1000];
+
+                    if(depth > 15.0) continue;  // solo rescata los puntos con profundiad inferior a 15m
+                    double xP = xNorm * depth;  // x normalizado se escala y se recupera x real
+                    double yP = yNorm * depth;
+                    double zP = depth;
+
+                    // file << xP << ";" << yP << ";" << zP << "\n";
+                    cloud->push_back(pcl::PointXYZ(xP, yP, zP));
+                }
+            }
+            // file.close();
+
+            if(!cloud->empty()) {
+                pcl::io::savePCDFileASCII(numb_img + ".pcd", *cloud);  // for Debug
+                // pcl::io::savePCDFileASCII("tmp/currentCloud.pcd", *cloud); //for Debug
+                // simpleVis(cloud); //1 cloud
+                cloud->clear();
+            }
+            //-----Generation pointcloud-----------end
+*/
             frame.clear();
         }
 
