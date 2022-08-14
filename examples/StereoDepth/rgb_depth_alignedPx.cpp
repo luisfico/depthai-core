@@ -195,7 +195,7 @@ int main() {
                 for(int u = 0; u < img_disparity.cols; u++) {
                   //double disparityD = img_disparity.ptr<uchar>(v)[u];  // ok!!   disparityD value is scaled by 16bits? so   real disparityD= disparityD/16bits ?
                   //double disparityD = img_disparity.ptr<CV_8UC1>(v)[u]*maxDisparity/255.0;  // ok!!   disparityD value is scaled by 16bits? so   real disparityD= disparityD/16bits ?
-                    double disparityD = img_disparity.ptr<int8_t>(v)[u];  // ok!!   disparityD value is scaled by 16bits? so   real disparityD= disparityD/16bits ?
+                    double disparityD = static_cast<double>(img_disparity.ptr<int8_t>(v)[u]);  // ok!!   disparityD value is scaled by 16bits? so   real disparityD= disparityD/16bits ?
                     
                     // double disparityD = disparity.ptr<uint8_t>(v)[u]; //ok!!   disparityD value is scaled by 16bits? so   real disparityD=
                     // disparityD/16bits ? double disparityD = disparity.ptr<uint16_t>(v)[u]; double disparityD = disparity.ptr<uint32_t>(v)[u]; uchar
