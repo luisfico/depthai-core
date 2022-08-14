@@ -160,10 +160,21 @@ Extrinsics from rgb->right test:
                                                     0.000064, 0.999910, 0.013421, -0.00029268,
                                                     0.004777, -0.013421, 0.999898, -0.00183094,
                                  				0.000000000000, 0.000000000000, 0.000000000000, 1.000000000000);
-*/
         cv::Mat TF_RightCamToColorCam = (cv::Mat_<double>(4, 4) << 0.999862, -0.016537, 0.001532, -0.03721128,
                                                 0.016547, 0.999836, -0.007300, -0.00103135,
                                                 -0.001411, 0.007325, 0.999972, 0.00215810,
+                                 				0.000000000000, 0.000000000000, 0.000000000000, 1.000000000000);
+
+Extrinsics from left->right test:
+[[0.999857, -0.016571, -0.003245, -7.479905]
+[0.016591, 0.999844, 0.006121, -0.129734]
+[0.003143, -0.006174, 0.999976, 0.016303]
+[0.000000, 0.000000, 0.000000, 1.000000]]
+*/
+        cv::Mat TF_LeftToRightCam = (cv::Mat_<double>(4, 4) << 0.999857, -0.016571, -0.003245, -7.479905,
+                                                0.016591, 0.999844, 0.006121, -0.129734,
+                                                0.003143, -0.006174, 0.999976, 0.016303,
+                                                0.000000, 0.000000, 0.000000, 1.000000,
                                  				0.000000000000, 0.000000000000, 0.000000000000, 1.000000000000);
 
     // Load Matrix Q
@@ -291,9 +302,11 @@ Extrinsics from rgb->right test:
 
     //cout << "Intrinsics from getCameraIntrinsics function 1280 x 720:" << endl;
     //intrinsics = calibData.getCameraIntrinsics(dai::CameraBoardSocket::RIGHT, 1280, 720);
+    //intrinsics = calibData.getCameraIntrinsics(dai::CameraBoardSocket::LEFT, 3840,2160);
     
-    cout << "Intrinsics from getCameraIntrinsics function 4K 3840x2160 (LEFT):" << endl;
-    intrinsics = calibData.getCameraIntrinsics(dai::CameraBoardSocket::LEFT, 3840,2160);
+    cout << "Intrinsics from getCameraIntrinsics function 4K 3840x2160 :" << endl;
+    intrinsics = calibData.getCameraIntrinsics(dai::CameraBoardSocket::RGB, 3840,2160);
+    
     printMatrix(intrinsics);
 
     int cont = 0;
@@ -331,7 +344,7 @@ Extrinsics from rgb->right test:
 
 
                     //-----Generation pointcloud with respect to left stereo frame-----------ini
-                    
+                    cont++;
                     std::string numb_img = "/home/lc/env/oakd/codeCpp/depthai-core-example/tmp/cloudDepth_" + to_string(cont);
                     // std::string numb_imgColor= "/home/lc/env/oakd/codeCpp/depthai-core-example/tmp/img_"+ to_string(cont)+".png" ;
                     std::string numb_imgColor = "/home/lc/env/oakd/codeCpp/depthai-core-example/tmp/img_current.png";
@@ -351,7 +364,14 @@ Extrinsics from rgb->right test:
                     // Assuming  1280 x 720  default
                     // TODO: check this calib default!!!
                     
-                    double fx = 2366.810547, fy = fx, cx = 1980.788452, cy = 1073.155884; // 4K = 3840x2160 is (1280×720   x3times)  
+                    /*
+                     Intrinsics from getCameraIntrinsics color  function 4K 3840x2160 :
+                    [[3090.419189, 0.000000, 1953.194824]
+                    [0.000000, 3090.419189, 1068.689209]
+                    [0.000000, 0.000000, 1.000000]]
+                    */
+                    //double fx = 3090.419189, fy = fx, cx = 1953.194824, cy = 1068.689209; // 4K color = 3840x2160 is (1280×720   x3times)  
+                    double fx = 2366.810547, fy = fx, cx = 1980.788452, cy = 1073.155884; // 4K right = 3840x2160 is (1280×720   x3times)  
                     //double fx = 788.936829*3, fy = 788.936829*3, cx = 660.262817*3, cy = 397.718628*3; // 4K = 3840x2160 is (1280×720   x3times)  
                     //double fx = 788.936829, fy = 788.936829, cx = 660.262817, cy = 397.718628; // default  1280 x 800
                     
@@ -477,12 +497,16 @@ Extrinsics from rgb->right test:
                                 pz = recons_ptr[3 * j + 2];
 #endif
 
+
                                 //Fix cloud from left frame to center color frame
                                 cv::Mat pt3dCamStereo = (cv::Mat_<double>(4, 1) << px, py, pz, 1);
 
                                 // Transf Pt3d
                                 //cv::Mat pt3dCvTransf = TF_LeftCamToColorCam.inv() * pt3dCamStereo;
-                                cv::Mat pt3dCvTransf = TF_RightCamToColorCam*pt3dCamStereo;
+                                //cv::Mat pt3dCvTransf = TF_RightCamToColorCam*pt3dCamStereo;
+                                cv::Mat pt3dCvTransf = TF_LeftToRightCam*pt3dCamStereo;
+                                
+                                
                                 // cloud_out_transf.push_back(pt3dCvTransf);
 
                                 // Project tranformed Pt3d  to cameraVP    find x,y    assign the depth value of double(d)
@@ -536,8 +560,6 @@ Extrinsics from rgb->right test:
                 cv::imshow(name, frame[name]);
                 cv::imwrite("/home/lc/env/oakd/codeCpp/depthai-core-example/tmp/" + std::to_string(cont) + name + ".png", frame[name]);
             }
-
-            
         }
 
         // Blend when both received
@@ -561,7 +583,6 @@ Extrinsics from rgb->right test:
             // file.close();
             return 0;
         }
-        cont++;
     }
 
     // file.close();
@@ -643,4 +664,10 @@ Extrinsics from left->rgb test:
                     [[2366.810547, 0.000000, 1980.788452]
                     [0.000000, 2366.810547, 1073.155884]
                     [0.000000, 0.000000, 1.000000]]
+
+                    Intrinsics from getCameraIntrinsics color  function 4K 3840x2160 :
+                    [[3090.419189, 0.000000, 1953.194824]
+                    [0.000000, 3090.419189, 1068.689209]
+                    [0.000000, 0.000000, 1.000000]]
+
                     */

@@ -18,7 +18,7 @@ TRY to get  "depth" or "depthRaw"
 // Optional. If set (true), the ColorCamera is downscaled from 1080p to 720p.
 // Otherwise (false), the aligned depth is automatically upscaled to 1080p
 static std::atomic<bool> downscaleColor{false};  // true
-static constexpr int fps = 30;
+static constexpr int fps = 15;//30;
 // The disparity is computed at this resolution, then upscaled to RGB resolution
 static constexpr auto monoRes = dai::MonoCameraProperties::SensorResolution::THE_400_P;  // THE_720_P
 
@@ -39,9 +39,9 @@ static std::atomic<bool> lr_check{true};
 
 int main() {
     std::ofstream file;
-    file.open("cloudDepth.csv");
-    // file.open("cloudDepth.csv", std::fstream::in | std::fstream::out | std::fstream::app);
-    file << "//X;Y;Z;Intensity\n";
+    //file.open("cloudDepth.csv");
+    //file.open("cloudDepth.csv", std::fstream::in | std::fstream::out | std::fstream::app);
+    //file << "//X;Y;Z;B;G;R\n";
 
     using namespace std;
 
@@ -167,6 +167,8 @@ int main() {
 
         // Blend when both received
         if(frame.find(rgbWindowName) != frame.end() && frame.find(depthWindowName) != frame.end()) {
+            
+            /*
             // Need to have both frames in BGR format before blending
             if(frame[depthWindowName].channels() < 3) {
                 cv::cvtColor(frame[depthWindowName], frame[depthWindowName], cv::COLOR_GRAY2BGR);
@@ -174,39 +176,27 @@ int main() {
             cv::Mat blended;
             cv::addWeighted(frame[rgbWindowName], rgbWeight, frame[depthWindowName], depthWeight, 0, blended);
             cv::imshow(blendedWindowName, blended);
-/*
+            */
+
             //-----Generation pointcloud with respect to left stereo frame-----------ini
-
-            // auto disparity = frame["depth"].clone();
-            auto disparity = frame[name].clone();
-
-            // cv::imwrite("tmp/imgRgb.png", frame["rgb"]);
-            cv::imwrite(numb_imgColor, frame["rgb"]);
-            cv::imwrite("/home/lc/env/oakd/codeCpp/depthai-core-example/tmp/imgDisparity.pgm", frame["depth"]);
+            file.open("/home/lc/env/oakd/codeCpp/out/" + std::to_string(ite) + "cloud.csv");
+            file << "//X;Y;Z;B;G;R\n";
 
             cv::Mat img_rgb = frame["rgb"].clone();
             cv::Mat img_disparity = frame["depth"].clone();
+            //cv::cvtColor(img_disparity, img_disparity, cv::COLOR_BGR2GRAY);
+            //auto maxDisparity = stereo->initialConfig.getMaxDisparity();
 
-            // Assuming  1280 x 720  default
-            // TODO: check this calib default!!!
-
-            double fx = 2366.810547, fy = fx, cx = 1980.788452, cy = 1073.155884;  // 4K = 3840x2160 is (1280×720   x3times)
-            double factorFix = 0.4;         // 1         // 720/400; //720/400; // 1080/720      0.4; //1000; //0.4;  // upscale   THE_400_P to THE_720_P
-            double baselineStereo = 0.075;  // Stereo baseline distance: 7.5 cm
-            for(int v = 0; v < disparity.rows; v++) {
-                for(int u = 0; u < disparity.cols; u++) {
-                    // if (disparity.at<uint8_t>(v, u) <= 0.0 || disparity.at<uint8_t>(v, u) >= 96.0)    //ok
-                    // if (disparity.at<uint8_t>(v, u) <= 0.0 || disparity.at<uint8_t>(v, u) >= 200.0)
-                    //     continue;
-
-                    // compute the depth from disparity
-                    // double disparityD=disparity.at<float>(v, u);//ko
-                    // double disparityD=disparity.at<double>(v, u); //ko
-                    // double disparityD = disparity.ptr<float>(v)[u]; //ko
-                    // double disparityD = disparity.ptr<unsigned short>(v)[u]; //ko
-
-                    // unsigned int disparityD = disparity.ptr<uint8_t>(v)[u]; //ok
-                    double disparityD = disparity.ptr<uchar>(v)[u];  // ok!!   disparityD value is scaled by 16bits? so   real disparityD= disparityD/16bits ?
+            double fx = 3090.419189, fy = fx, cx = 1953.194824, cy = 1068.689209; //  COLOR 4K color = 3840x2160 is (1280×720   x3times)  
+          //double fx = 2366.810547, fy = fx, cx = 1980.788452, cy = 1073.155884;  // RIGHT 4K Intrinsics from getCameraIntrinsics function 4K 3840x2160 (RIGHT):   4K = 3840x2160 is (1280×720   x3times)
+            double factorFix = 1;         //0.4   1         // 720/400; //720/400; // 1080/720      0.4; //1000; //0.4;  // upscale   THE_400_P to THE_720_P
+            //double baselineStereo = 0.075;  // Stereo baseline distance: 7.5 cm
+            for(int v = 0; v < img_disparity.rows; v++) {
+                for(int u = 0; u < img_disparity.cols; u++) {
+                  //double disparityD = img_disparity.ptr<uchar>(v)[u];  // ok!!   disparityD value is scaled by 16bits? so   real disparityD= disparityD/16bits ?
+                  //double disparityD = img_disparity.ptr<CV_8UC1>(v)[u]*maxDisparity/255.0;  // ok!!   disparityD value is scaled by 16bits? so   real disparityD= disparityD/16bits ?
+                    double disparityD = img_disparity.ptr<int8_t>(v)[u];  // ok!!   disparityD value is scaled by 16bits? so   real disparityD= disparityD/16bits ?
+                    
                     // double disparityD = disparity.ptr<uint8_t>(v)[u]; //ok!!   disparityD value is scaled by 16bits? so   real disparityD=
                     // disparityD/16bits ? double disparityD = disparity.ptr<uint16_t>(v)[u]; double disparityD = disparity.ptr<uint32_t>(v)[u]; uchar
                     // dispValue = disparity.ptr<uchar>(v)[u];  double disparityD = static_cast<double>(dispValue);
@@ -214,30 +204,22 @@ int main() {
 
                     double xNorm = (u - cx) / fx;                                 // x normalizado
                     double yNorm = (v - cy) / fy;                                 // y normalizado
-                    double depth = fx * baselineStereo / (disparityD)*factorFix;  // ok depth=z real = scala w
-                    // double depth = fx * baselineStereo / (disparity.at<float>(v, u));//ko
-                    // double depth = fx * baselineStereo / disparity.ptr<float>(v)[u];//ko
-                    // unsigned int d2 = img_depth.ptr<uint8_t>(400)[1000];
-
-                    if(depth > 15.0) continue;  // solo rescata los puntos con profundiad inferior a 15m
+                    double depth = 1 / (disparityD);  // ok depth=z real = scala w
+                    
                     double xP = xNorm * depth;  // x normalizado se escala y se recupera x real
                     double yP = yNorm * depth;
                     double zP = depth;
 
-                    // file << xP << ";" << yP << ";" << zP << "\n";
-                    cloud->push_back(pcl::PointXYZ(xP, yP, zP));
+                    int colorB = img_rgb.data[v * img_rgb.step + u * img_rgb.channels()];     // blue
+                    int colorG = img_rgb.data[v * img_rgb.step + u * img_rgb.channels() + 1]; // green
+                    int colorR = img_rgb.data[v * img_rgb.step + u * img_rgb.channels() + 2];
+                    
+                    file << xP << ";" << yP << ";" << zP << ";" << colorB << ";" << colorG << ";" << colorR<< "\n";
                 }
             }
-            // file.close();
-
-            if(!cloud->empty()) {
-                pcl::io::savePCDFileASCII(numb_img + ".pcd", *cloud);  // for Debug
-                // pcl::io::savePCDFileASCII("tmp/currentCloud.pcd", *cloud); //for Debug
-                // simpleVis(cloud); //1 cloud
-                cloud->clear();
-            }
+            file.close();
             //-----Generation pointcloud-----------end
-*/
+
             frame.clear();
         }
 
