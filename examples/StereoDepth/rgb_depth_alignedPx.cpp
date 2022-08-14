@@ -63,6 +63,7 @@ int main() {
 
     // Properties
     camRgb->setBoardSocket(dai::CameraBoardSocket::RGB);
+    //camRgb->setResolution(dai::ColorCameraProperties::SensorResolution::THE_1080_P);  // color THE_1080_P
     camRgb->setResolution(dai::ColorCameraProperties::SensorResolution::THE_4_K);  // color THE_1080_P
     camRgb->setFps(fps);
     if(downscaleColor) camRgb->setIspScale(2, 3);
@@ -114,12 +115,12 @@ int main() {
 
     auto rgbWindowName = "rgb";
     auto depthWindowName = "depth";
-    auto blendedWindowName = "rgb-depth";
+    //auto blendedWindowName = "rgb-depth";
     cv::namedWindow(rgbWindowName);
     cv::namedWindow(depthWindowName);
-    cv::namedWindow(blendedWindowName);
+    //cv::namedWindow(blendedWindowName);
     int defaultValue = (int)(rgbWeight * 100);
-    cv::createTrackbar("RGB Weight %", blendedWindowName, &defaultValue, 100, updateBlendWeights);
+    //cv::createTrackbar("RGB Weight %", blendedWindowName, &defaultValue, 100, updateBlendWeights);
 
     int ite = 0;
     while(true) {
@@ -180,7 +181,7 @@ int main() {
             cv::Mat img_disparity = frame["depth"].clone();
             //cv::cvtColor(img_disparity, img_disparity, cv::COLOR_BGR2GRAY);
             //auto maxDisparity = stereo->initialConfig.getMaxDisparity();
-            //remember depth=f*b/disp  :   depthMin=f*b/dispMax ,  dispMax=95, depth400P=45cm =  570*7.5cm /95  
+            //remember depth=f*b/disp  :   depthMin=f*b/dispMax ,  dispMax=95, depth400P=45cm =  570*7.5cm /95     -> en practica + de 60cm
 
             double fx = 3090.419189, fy = fx, cx = 1953.194824, cy = 1068.689209; //  COLOR 4K color = 3840x2160 is (1280×720   x3times)  
           //double fx = 2366.810547, fy = fx, cx = 1980.788452, cy = 1073.155884;  // RIGHT 4K Intrinsics from getCameraIntrinsics function 4K 3840x2160 (RIGHT):   4K = 3840x2160 is (1280×720   x3times)
