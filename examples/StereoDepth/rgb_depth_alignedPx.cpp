@@ -3,6 +3,8 @@ BUILD:cmake -S . -B build -D 'DEPTHAI_BUILD_EXAMPLES=ON' -D 'CMAKE_BUILD_TYPE=De
 cmake --build build -j$(nproc)
 RUN: ./build/examples/rgb_depth_alignedPx
 TRY to get  "depth" or "depthRaw"
+
+TODO: to estimate  factorFix, and test more subpixel
 */
 
 #include <cstdio>
@@ -30,12 +32,7 @@ static void updateBlendWeights(int percentRgb, void* ctx) {
     depthWeight = 1.f - rgbWeight;
 }
 
-// Closer-in minimum depth, disparity range is doubled (from 95 to 190):
-static std::atomic<bool> extended_disparity{false};
-// Better accuracy for longer distance, fractional disparity 32-levels:
-static std::atomic<bool> subpixel{true};
-// Better handling for occlusions:
-static std::atomic<bool> lr_check{true};
+
 
 int main() {
     std::ofstream file;
@@ -58,15 +55,7 @@ int main() {
 
     auto rgbOut = pipeline.create<dai::node::XLinkOut>();
     auto depthOut = pipeline.create<dai::node::XLinkOut>();
-
-    // Create a node that will produce the depth map (using disparity output as it's easier to visualize depth this way)
-    stereo->setDefaultProfilePreset(dai::node::StereoDepth::PresetMode::HIGH_ACCURACY);  // HIGH_ACCURACY,HIGH_DENSITY
-    // Options: MEDIAN_OFF, KERNEL_3x3, KERNEL_5x5, KERNEL_7x7 (default)
-    // stereo->initialConfig.setMedianFilter(dai::MedianFilter::KERNEL_7x7);
-    stereo->setLeftRightCheck(lr_check);
-    stereo->setExtendedDisparity(extended_disparity);
-    stereo->setSubpixel(subpixel);
-
+    
     rgbOut->setStreamName("rgb");
     queueNames.push_back("rgb");
     depthOut->setStreamName("depth");
@@ -97,9 +86,14 @@ int main() {
     right->setBoardSocket(dai::CameraBoardSocket::RIGHT);
     right->setFps(fps);
 
-    stereo->setDefaultProfilePreset(dai::node::StereoDepth::PresetMode::HIGH_DENSITY);
-    // LR-check is required for depth alignment
-    stereo->setLeftRightCheck(true);
+
+// Create a node that will produce the depth map (using disparity output as it's easier to visualize depth this way)
+    stereo->setDefaultProfilePreset(dai::node::StereoDepth::PresetMode::HIGH_ACCURACY);  // HIGH_ACCURACY,HIGH_DENSITY
+    // Options: MEDIAN_OFF, KERNEL_3x3, KERNEL_5x5, KERNEL_7x7 (default)
+    // stereo->initialConfig.setMedianFilter(dai::MedianFilter::KERNEL_7x7);    
+    stereo->setLeftRightCheck(true); // LR-check is required for depth alignment  // Better handling for occlusions:
+    stereo->setExtendedDisparity(false); // Closer-in minimum depth, disparity range is doubled (from 95 to 190):
+    stereo->setSubpixel(true);// Better accuracy for longer distance, fractional disparity 32-levels:
     stereo->setDepthAlign(dai::CameraBoardSocket::RGB);
 
     // Linking
@@ -186,10 +180,11 @@ int main() {
             cv::Mat img_disparity = frame["depth"].clone();
             //cv::cvtColor(img_disparity, img_disparity, cv::COLOR_BGR2GRAY);
             //auto maxDisparity = stereo->initialConfig.getMaxDisparity();
+            //remember depth=f*b/disp  :   depthMin=f*b/dispMax ,  dispMax=95, depth400P=45cm =  570*7.5cm /95  
 
             double fx = 3090.419189, fy = fx, cx = 1953.194824, cy = 1068.689209; //  COLOR 4K color = 3840x2160 is (1280×720   x3times)  
           //double fx = 2366.810547, fy = fx, cx = 1980.788452, cy = 1073.155884;  // RIGHT 4K Intrinsics from getCameraIntrinsics function 4K 3840x2160 (RIGHT):   4K = 3840x2160 is (1280×720   x3times)
-            double factorFix = 1;         //0.4   1         // 720/400; //720/400; // 1080/720      0.4; //1000; //0.4;  // upscale   THE_400_P to THE_720_P
+            double factorFix = 7.24519034;         //0.4   1         // 720/400; //720/400; // 1080/720      0.4; //1000; //0.4;  // upscale   THE_400_P to THE_720_P
             //double baselineStereo = 0.075;  // Stereo baseline distance: 7.5 cm
             for(int v = 0; v < img_disparity.rows; v++) {
                 for(int u = 0; u < img_disparity.cols; u++) {
@@ -204,7 +199,7 @@ int main() {
 
                     double xNorm = (u - cx) / fx;                                 // x normalizado
                     double yNorm = (v - cy) / fy;                                 // y normalizado
-                    double depth = 1 / (disparityD);  // ok depth=z real = scala w
+                    double depth = factorFix*1 / (disparityD);  // ok depth=z real = scala w
                     
                     double xP = xNorm * depth;  // x normalizado se escala y se recupera x real
                     double yP = yNorm * depth;
