@@ -109,3 +109,45 @@ git remote add origin git@github.com:luisfico/depthai-core-example.git
 Python project
 git remote add origin git@github.com:luisfico/depthai-experiments.git   
 (oak python get color ) OK get cloud from aligned stereo images 400p. Min distance of deteccion=35cm (no depth aligment with color camera. TODO)
+
+
+
+
+*******RUN OTHER EXAMPLES
+
+Use monoOAK
+    ./build/examples/apriltag_rgb 
+
+Use monoOAKD
+    ./build/examples/apriltag       
+    ./build/examples/edge_detector  
+    ./build/examples/feature_tracker
+    ./build/examples/image_manip
+
+Stero problem: depth map low quality (discontunities)
+    ./build/examples/depth_crop_control   (crop depth img control roi pose with keyboard)  
+    ./build/examples/depth_post_processing  (disparidad la cambia a disparadad colorida)
+    ./build/examples/depth_preview    (ERROR no es la depth, sino muestra la DISPARIDAD)         
+    ./build/examples/rgb_depth_aligned (tested)
+    ./build/examples/rgb_depth_confidence_aligned   ???
+    ./build/examples/stereo_depth_video  (show all outputs of steroNode: left,right,leftRect,rightRect,Disp,Depth)
+
+
+
+****SOME COMMENTS about nodes
+
+aprilTag        (use output 4 corner marker     potencial use: for the apply solvepnp)
+EdgeDetector    (use output edged)              potencial use: modelBasedPose)
+FeatureTracker  (mode feature and optical flow) potencial use: vo,sfm,slam?
+IMU             (ivo,ivslam,etc)
+ImageManip      (roi, rotate, warp, deformation iamge, etc)
+ObjectTracker   (reconoce objetos,personas  y sigue su region2d)
+
+
+
+
+
+
+
+Stereodepth   for estimate disparity and depth(try)?
+TRY get nodeStereo.DEPTHT   directamente  y  realinearlo a camera color
